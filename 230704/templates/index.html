@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>대구 관광 명소</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+</head>
+<body>
+    <h1 onclick="location.href='/'">대구 관광 명소</h1>
+    <div id="search-bar">
+        <input type="text" id="search-input" placeholder="관광지 이름 검색...">
+        <button id="search-button" onclick="searchAttractions()">검색</button>
+    </div>
+    <div class="pagination top-pagination">
+        <button onclick="changePage(-1)" id="prevButtonTop">이전</button>
+        <span id="currentPageTop"></span>
+        <button onclick="changePage(1)" id="nextButtonTop">다음</button>
+    </div>
+    <div id="content-container">
+        <div id="attractions" class="loading">데이터를 불러오는 중...</div>
+        <div id="map-container">
+            <div id="map"></div>
+            <button id="close-map">닫기</button>
+        </div>
+    </div>
+    <div class="pagination bottom-pagination">
+        <button onclick="changePage(-1)" id="prevButtonBottom">이전</button>
+        <span id="currentPageBottom"></span>
+        <button onclick="changePage(1)" id="nextButtonBottom">다음</button>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        const numOfRows = 10;
+        let totalCount = 0;
+        let searchKeyword = '';
+        let map;
+        let geocoder;
+        let markers = [];
+
+        function initMap() {
+            console.log("Google Maps API loaded");
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: {lat: 36.3504, lng: 127.3845},  // 대전시 중심 좌표
+                zoom: 12
+            });
+            geocoder = new google.maps.Geocoder();
+        }
+
+        function loadGoogleMaps() {
+            if (typeof google === 'undefined') {
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDEd04BSJjV-IZGa-LDualZUaPn6j-pYVg&callback=initMap`;
+                script.async = true;
+                script.defer = true;
+                document.head.appendChild(script);
+            } else {
+                initMap();
+            }
+        }
+
+        function updateMap(address, name) {
+            if (!map || !geocoder) {
+                initMap();
+            }
+            geocoder.geocode({ 'address': address }, function(results, status) {
+                if (status === 'OK') {
+                    map.setCenter(results[0].geometry.location);
+                    map.setZoom(15);
+
+                    // 기존 마커 제거
+                    markers.forEach(marker => marker.setMap(null));
+                    markers = [];
+
+                    // 새 마커 추가
+                    const marker = new google.maps.Marker({
+                        map: map,
+                        position: results[0].geometry.location,
+                        title: name
+                    });
+                    markers.push(marker);
+
+                    // 지도 컨테이너를 표시
+                    document.getElementById('map-container').style.display = 'block';
+                } else {
+                    console.error('Geocode was not successful for the following reason: ' + status);
+                    alert('주소를 찾을 수 없습니다. 다시 시도해주세요.');
+                }
+            });
+        }
+
+        function getAttractions(page) {
+            const attractionsDiv = document.getElementById('attractions');
+            attractionsDiv.innerHTML = '<div class="loading">데이터를 불러오는 중...</div>';
+            
+            axios.get(`/get_attractions?pageNo=${page}&numOfRows=${numOfRows}&keyword=${searchKeyword}`)
+                .then(function (response) {
+                    console.log('Response:', response.data);
+                    const data = response.data;
+                    const attractions = data.attractions;
+                    totalCount = data.totalCount;
+                    currentPage = data.pageNo;
+                    
+                    if (attractions.length === 0) {
+                        attractionsDiv.innerHTML = '<p>관광 명소 정보가 없습니다.</p>';
+                        return;
+                    }
+                    
+                    let html = '<ul>';
+                    attractions.forEach(function(attraction) {
+                        const rating = attraction.rating || Math.floor(Math.random() * 5) + 1; // 임시로 랜덤 별점 생성
+                        html += `<li>
+                            <h2 onclick="showDetail('${attraction.id}')">${attraction.attractname || '이름 없음'}</h2>
+                            <img src="${attraction.image || 'https://via.placeholder.com/150'}" alt="${attraction.attractname}" class="attraction-image">
+                            <p><strong>주소:</strong> ${attraction.address || '주소 정보 없음'}</p>
+                            <p><strong>설명:</strong> ${attraction.attractcontents || '설명 없음'}</p>
+                            <p><strong>별점:</strong> ${getRatingStars(rating)}</p>
+                            <button onclick="updateMap('${attraction.address}', '${attraction.attractname.replace(/'/g, "\\'")}')">지도에서 보기</button>
+                        </li>`;
+                    });
+                    html += '</ul>';
+                    attractionsDiv.innerHTML = html;
+                    
+                    updatePagination();
+                })
+                .catch(function (error) {
+                    console.error('Error:', error);
+                    attractionsDiv.innerHTML = '<p>데이터를 불러오는 데 실패했습니다.</p>';
+                });
+        }
+
+        function getRatingStars(rating) {
+            let stars = '';
+            for (let i = 1; i <= 5; i++) {
+                if (i <= rating) {
+                    stars += '<i class="fas fa-star"></i>';
+                } else {
+                    stars += '<i class="far fa-star"></i>';
+                }
+            }
+            return stars;
+        }
+
+        function showDetail(id) {
+            // 상세 페이지로 이동
+            window.location.href = `/attraction/${id}`;
+        }
+
+        function updatePagination() {
+            const totalPages = Math.ceil(totalCount / numOfRows);
+            const pageText = `${currentPage} / ${totalPages}`;
+            document.getElementById('currentPageTop').textContent = pageText;
+            document.getElementById('currentPageBottom').textContent = pageText;
+            document.getElementById('prevButtonTop').disabled = currentPage === 1;
+            document.getElementById('prevButtonBottom').disabled = currentPage === 1;
+            document.getElementById('nextButtonTop').disabled = currentPage === totalPages;
+            document.getElementById('nextButtonBottom').disabled = currentPage === totalPages;
+        }
+
+        function changePage(delta) {
+            const newPage = currentPage + delta;
+            const totalPages = Math.ceil(totalCount / numOfRows);
+            
+            if (newPage > 0 && newPage <= totalPages) {
+                currentPage = newPage;
+                getAttractions(currentPage);
+            }
+        }
+
+        function searchAttractions() {
+            searchKeyword = document.getElementById('search-input').value;
+            currentPage = 1;
+            getAttractions(currentPage);
+        }
+
+        document.getElementById('close-map').addEventListener('click', function() {
+            document.getElementById('map-container').style.display = 'none';
+        });
+
+        // 초기 데이터 로드 및 Google Maps API 로드
+        loadGoogleMaps();
+        getAttractions(currentPage);
+    </script>
+</body>
+</html>
