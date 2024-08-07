@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>뉴스 분석기</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>뉴스 분석기</h1>
+        <div class="input-container">
+            <input type="url" id="url-input" placeholder="뉴스 URL을 입력하세요">
+            <input type="text" id="question-input" placeholder="질문을 입력하세요">
+            <button id="submit-btn">분석하기</button>
+        </div>
+        <div id="loading" class="hidden">
+            <p>분석 중...</p>
+            <p id="loading-status"></p>
+        </div>
+        <div id="response-container" class="hidden">
+            <h2>요약:</h2>
+            <p id="summary-text"></p>
+            <h2>답변:</h2>
+            <p id="answer-text"></p>
+            <h2>키워드:</h2>
+            <p id="keywords-text"></p>
+            <h2>감정 분석:</h2>
+            <p id="sentiment-text"></p>
+            <h2>기사 분류:</h2>
+            <p id="category-text"></p>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
